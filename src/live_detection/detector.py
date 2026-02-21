@@ -1,26 +1,30 @@
-import tensorflow as tf
-import numpy as np
-from src.config import MODEL_SAVE_PATH, IMAGE_SIZE
+from ultralytics import YOLO
 
 
 class ObjectDetector:
 
     def __init__(self):
-        print("Loading trained model...")
-        self.model = tf.keras.models.load_model(MODEL_SAVE_PATH)
-        print("Model loaded successfully.")
+        print("Loading YOLOv8 model...")
+        self.model = YOLO("yolov8n.pt")
+        print("YOLO model loaded successfully.")
 
-    def preprocess_frame(self, frame):
-        resized = tf.image.resize(frame, IMAGE_SIZE)
-        normalized = resized / 255.0
-        expanded = np.expand_dims(normalized, axis=0)
-        return expanded
+    def detect(self, frame):
+        results = self.model(frame)
 
-    def predict(self, frame):
-        processed_frame = self.preprocess_frame(frame)
-        predictions = self.model.predict(processed_frame, verbose=0)
+        detections = []
 
-        class_index = int(np.argmax(predictions))
-        confidence = float(np.max(predictions))
+        for result in results:
+            boxes = result.boxes
 
-        return class_index, confidence
+            for box in boxes:
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                confidence = float(box.conf[0])
+                class_id = int(box.cls[0])
+
+                detections.append({
+                    "box": (int(x1), int(y1), int(x2), int(y2)),
+                    "confidence": confidence,
+                    "class_id": class_id
+                })
+
+        return detections
