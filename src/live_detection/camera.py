@@ -1,8 +1,9 @@
 import cv2
 from src.config import CAMERA_INDEX, CONFIDENCE_THRESHOLD, WINDOW_NAME
+from src.live_detection.color import get_dominant_color
 
 
-def start_camera(detector, class_names):
+def start_camera(detector):
 
     print("Opening camera...")
     cap = cv2.VideoCapture(CAMERA_INDEX)
@@ -17,20 +18,32 @@ def start_camera(detector, class_names):
         ret, frame = cap.read()
 
         if not ret:
-            print("Failed to read frame.")
             break
 
-        class_index, confidence = detector.predict(frame)
+        detections = detector.detect(frame)
 
-        if confidence > CONFIDENCE_THRESHOLD:
-            label = f"{class_names[class_index]} ({confidence:.2f})"
+        for detection in detections:
+            x1, y1, x2, y2 = detection["box"]
+            confidence = detection["confidence"]
+            class_id = detection["class_id"]
+
+            if confidence < CONFIDENCE_THRESHOLD:
+                continue
+
+            label = detector.model.names[class_id]
+
+            color_name = get_dominant_color(frame, (x1, y1, x2, y2))
+
+            display_text = f"{label} | {color_name} ({confidence:.2f})"
+
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
             cv2.putText(
                 frame,
-                label,
-                (20, 40),
+                display_text,
+                (x1, y1 - 10),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                1,
+                0.7,
                 (0, 255, 0),
                 2
             )
