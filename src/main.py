@@ -5,24 +5,11 @@ from src.live_detection.camera import start_camera
 def main():
 
     print("===================================")
-    print("AI Visual Search Engine - Live Mode")
+    print("AI Visual Search Engine - YOLO Mode")
     print("===================================")
 
-    class_names = [
-        "airplane",
-        "automobile",
-        "bird",
-        "cat",
-        "deer",
-        "dog",
-        "frog",
-        "horse",
-        "ship",
-        "truck"
-    ]
-
     detector = ObjectDetector()
-    start_camera(detector, class_names)
+    start_camera(detector)
 
 
 if __name__ == "__main__":
