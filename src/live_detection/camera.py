@@ -1,57 +1,65 @@
 import cv2
 import time
-from src.config import CAMERA_INDEX, CONFIDENCE_THRESHOLD, WINDOW_NAME
-from src.live_detection.color import get_dominant_color
+from src.live_detection.detector import YOLODetector
+from src.emotion.emotion_detector import detect_emotion
 
 
-def start_camera(detector):
+class LiveCamera:
 
-    print("Opening camera...")
-    cap = cv2.VideoCapture(CAMERA_INDEX)
+    def __init__(self):
+        self.detector = YOLODetector()
+        self.cap = cv2.VideoCapture(0)
 
-    if not cap.isOpened():
-        print("Error: Unable to access camera.")
-        return
+        if not self.cap.isOpened():
+            print("Error: Cannot access camera.")
+            exit()
 
-    print("Press 'q' to exit.")
-    print("Press 's' to save snapshot.")
+    def get_dominant_color(self, image):
+        # Simple average RGB method
+        avg_color = image.mean(axis=0).mean(axis=0)
+        r, g, b = avg_color
 
-    prev_time = 0
+        if r > g and r > b:
+            return "Red"
+        elif g > r and g > b:
+            return "Green"
+        elif b > r and b > g:
+            return "Blue"
+        else:
+            return "Mixed"
 
-    try:
+    def run(self):
+        prev_time = 0
+
         while True:
-            ret, frame = cap.read()
-
+            ret, frame = self.cap.read()
             if not ret:
+                print("Failed to grab frame")
                 break
 
-            # FPS Calculation
-            current_time = time.time()
-            fps = 1 / (current_time - prev_time) if prev_time != 0 else 0
-            prev_time = current_time
+            results = self.detector.detect(frame)
 
-            detections = detector.detect(frame)
+            for result in results:
+                x1, y1, x2, y2, label, confidence = result
 
-            for detection in detections:
-                x1, y1, x2, y2 = detection["box"]
-                confidence = detection["confidence"]
-                class_id = detection["class_id"]
+                # Crop detected region
+                crop = frame[y1:y2, x1:x2]
 
-                if confidence < CONFIDENCE_THRESHOLD:
-                    continue
+                # Get dominant color
+                color = self.get_dominant_color(crop)
 
-                label = detector.model.names[class_id]
-                color_name = get_dominant_color(frame, (x1, y1, x2, y2))
-
-                display_text = f"{label} | {color_name} ({confidence:.2f})"
+                # Get emotion (only if person detected)
+                emotion = "N/A"
+                if label == "person":
+                    emotion = detect_emotion(crop)
 
                 # Draw bounding box
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-                # Show label
+                # Draw label
                 cv2.putText(
                     frame,
-                    display_text,
+                    f"{label} | {color} ({confidence:.2f})",
                     (x1, y1 - 10),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.6,
@@ -59,38 +67,38 @@ def start_camera(detector):
                     2
                 )
 
-                # Logging detection
-                with open("outputs/detections.log", "a") as log_file:
-                    log_file.write(
-                        f"{label} | {color_name} | {confidence:.2f}\n"
+                # Draw emotion
+                if label == "person":
+                    cv2.putText(
+                        frame,
+                        f"Emotion: {emotion}",
+                        (x1, y1 - 35),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (0, 255, 255),
+                        2
                     )
 
-            # Show FPS
+            # FPS calculation
+            curr_time = time.time()
+            fps = 1 / (curr_time - prev_time) if prev_time != 0 else 0
+            prev_time = curr_time
+
             cv2.putText(
                 frame,
                 f"FPS: {int(fps)}",
-                (20, 30),
+                (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
+                0.8,
                 (255, 0, 0),
                 2
             )
 
-            cv2.imshow(WINDOW_NAME, frame)
+            cv2.imshow("AI Visual Search Engine - Live", frame)
 
-            key = cv2.waitKey(1) & 0xFF
-
-            # Exit
-            if key == ord("q"):
+            # Press q to exit
+            if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
-            # Save Snapshot
-            if key == ord("s"):
-                timestamp = int(time.time())
-                filename = f"outputs/snapshot_{timestamp}.jpg"
-                cv2.imwrite(filename, frame)
-                print(f"Snapshot saved: {filename}")
-
-    finally:
-        cap.release()
+        self.cap.release()
         cv2.destroyAllWindows()
