@@ -1,4 +1,6 @@
 import cv2
+import time
+import os
 from src.config import CAMERA_INDEX, CONFIDENCE_THRESHOLD, WINDOW_NAME
 from src.live_detection.color import get_dominant_color
 
@@ -13,12 +15,19 @@ def start_camera(detector):
         return
 
     print("Press 'q' to exit.")
+    print("Press 's' to save snapshot.")
+
+    prev_time = 0
 
     while True:
         ret, frame = cap.read()
 
         if not ret:
             break
+
+        current_time = time.time()
+        fps = 1 / (current_time - prev_time) if prev_time != 0 else 0
+        prev_time = current_time
 
         detections = detector.detect(frame)
 
@@ -31,7 +40,6 @@ def start_camera(detector):
                 continue
 
             label = detector.model.names[class_id]
-
             color_name = get_dominant_color(frame, (x1, y1, x2, y2))
 
             display_text = f"{label} | {color_name} ({confidence:.2f})"
@@ -43,15 +51,36 @@ def start_camera(detector):
                 display_text,
                 (x1, y1 - 10),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
+                0.6,
                 (0, 255, 0),
                 2
             )
 
+        # Show FPS
+        cv2.putText(
+            frame,
+            f"FPS: {int(fps)}",
+            (20, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 0, 0),
+            2
+        )
+
         cv2.imshow(WINDOW_NAME, frame)
 
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+        key = cv2.waitKey(1) & 0xFF
+
+        # Exit
+        if key == ord("q"):
             break
+
+        # Save Snapshot
+        if key == ord("s"):
+            timestamp = int(time.time())
+            filename = f"outputs/snapshot_{timestamp}.jpg"
+            cv2.imwrite(filename, frame)
+            print(f"Snapshot saved: {filename}")
 
     cap.release()
     cv2.destroyAllWindows()
