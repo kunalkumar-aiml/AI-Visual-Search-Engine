@@ -2,7 +2,7 @@ import torch
 from ultralytics import YOLO
 
 
- class YOLODetector:
+class ObjectDetector:
     def __init__(self):
         print("Loading YOLOv8 model...")
 
