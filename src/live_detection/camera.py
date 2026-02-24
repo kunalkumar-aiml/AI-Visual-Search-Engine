@@ -1,5 +1,6 @@
 import cv2
 import time
+from src.emotion.emotion_detector import detect_emotion
 
 
 def start_camera(detector):
@@ -17,34 +18,43 @@ def start_camera(detector):
         ret, frame = cap.read()
 
         if not ret:
-            print("Failed to grab frame.")
             break
 
-        # Perform detection using passed detector
         results = detector.detect(frame)
 
         for result in results:
             boxes = result.boxes
+
             if boxes is not None:
                 for box in boxes:
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
                     conf = float(box.conf[0])
                     cls = int(box.cls[0])
 
-                    label = f"{result.names[cls]} {conf:.2f}"
+                    label_name = result.names[cls]
+
+                    # 🔥 Crop face/person region
+                    cropped = frame[y1:y2, x1:x2]
+
+                    emotion = "Unknown"
+
+                    if cropped.size != 0:
+                        emotion = detect_emotion(cropped)
+
+                    final_label = f"{label_name} | {emotion}"
 
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     cv2.putText(
                         frame,
-                        label,
+                        final_label,
                         (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
+                        0.6,
                         (0, 255, 0),
                         2
                     )
 
-        # FPS calculation
+        # FPS
         current_time = time.time()
         fps = 1 / (current_time - prev_time) if prev_time != 0 else 0
         prev_time = current_time
@@ -61,7 +71,6 @@ def start_camera(detector):
 
         cv2.imshow("AI Live Detection", frame)
 
-        # Press Q to exit
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
