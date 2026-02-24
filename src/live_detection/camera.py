@@ -1,9 +1,8 @@
 import cv2
 import time
-from src.live_detection.detector import ObjectDetector
 
 
-def start_camera():
+def start_camera(detector):
     print("Starting live camera...")
 
     cap = cv2.VideoCapture(0)
@@ -11,8 +10,6 @@ def start_camera():
     if not cap.isOpened():
         print("Error: Could not access camera.")
         return
-
-    detector = ObjectDetector()
 
     prev_time = 0
 
@@ -23,7 +20,7 @@ def start_camera():
             print("Failed to grab frame.")
             break
 
-        # Perform detection
+        # Perform detection using passed detector
         results = detector.detect(frame)
 
         for result in results:
