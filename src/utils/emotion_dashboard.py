@@ -28,3 +28,5 @@ def show_dashboard():
     plt.title("Emotion Percentage Distribution")
     plt.ylabel("")
     plt.show()
+    if __name__ == "__main__":
+    show_dashboard()
