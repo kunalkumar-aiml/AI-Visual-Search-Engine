@@ -4,12 +4,10 @@ from collections import deque
 from src.emotion.emotion_detector import detect_emotion
 from src.utils.emotion_logger import log_emotion
 
-# Haar cascade for face detection
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
 
-# Emotion smoothing buffer
 emotion_history = deque(maxlen=10)
 
 
@@ -23,7 +21,7 @@ def start_camera(detector):
         return
 
     prev_time = 0
-    frame_count = 0
+    last_log_time = time.time()
     current_emotion = "Detecting..."
 
     while True:
@@ -31,14 +29,10 @@ def start_camera(detector):
         if not ret:
             break
 
-        frame_count += 1
-
         results = detector.detect(frame)
 
-        # ---------------- PERSON DETECTION ----------------
         for result in results:
             boxes = result.boxes
-
             if boxes is None:
                 continue
 
@@ -51,10 +45,8 @@ def start_camera(detector):
                     continue
 
                 h, w, _ = frame.shape
-                x1 = max(0, x1)
-                y1 = max(0, y1)
-                x2 = min(w, x2)
-                y2 = min(h, y2)
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(w, x2), min(h, y2)
 
                 person_crop = frame[y1:y2, x1:x2]
                 if person_crop.size == 0:
@@ -66,16 +58,14 @@ def start_camera(detector):
                 for (fx, fy, fw, fh) in faces:
                     face_crop = person_crop[fy:fy+fh, fx:fx+fw]
 
-                    # Run emotion every 3 frames
-                    if frame_count % 3 == 0:
-                        emotion = detect_emotion(face_crop)
-                        emotion_history.append(emotion)
+                    emotion = detect_emotion(face_crop)
+                    emotion_history.append(emotion)
 
-                        if len(emotion_history) > 0:
-                            current_emotion = max(
-                                set(emotion_history),
-                                key=emotion_history.count
-                            )
+                    if len(emotion_history) > 0:
+                        current_emotion = max(
+                            set(emotion_history),
+                            key=emotion_history.count
+                        )
 
                     cv2.rectangle(
                         person_crop,
@@ -85,7 +75,6 @@ def start_camera(detector):
                         2
                     )
 
-                # Emotion color logic
                 if "happy" in current_emotion.lower():
                     color = (0, 255, 0)
                 elif "sad" in current_emotion.lower() or "angry" in current_emotion.lower():
@@ -95,13 +84,7 @@ def start_camera(detector):
                 else:
                     color = (255, 255, 0)
 
-                cv2.rectangle(
-                    frame,
-                    (x1, y1),
-                    (x2, y2),
-                    color,
-                    2
-                )
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
                 cv2.putText(
                     frame,
@@ -113,11 +96,12 @@ def start_camera(detector):
                     2
                 )
 
-        # ---------------- GLOBAL LOGGING FIX ----------------
-        if frame_count % 30 == 0 and current_emotion != "Detecting...":
+        # ✅ TIME BASED LOGGING (every 5 seconds)
+        if time.time() - last_log_time > 5 and current_emotion != "Detecting...":
             log_emotion(current_emotion)
+            last_log_time = time.time()
 
-        # ---------------- FPS ----------------
+        # FPS
         current_time = time.time()
         fps = 1 / (current_time - prev_time) if prev_time != 0 else 0
         prev_time = current_time
