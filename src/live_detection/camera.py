@@ -9,7 +9,7 @@ face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
 
-# Store last 10 emotions for smoothing
+# Emotion smoothing buffer
 emotion_history = deque(maxlen=10)
 
 
@@ -35,6 +35,7 @@ def start_camera(detector):
 
         results = detector.detect(frame)
 
+        # ---------------- PERSON DETECTION ----------------
         for result in results:
             boxes = result.boxes
 
@@ -49,7 +50,6 @@ def start_camera(detector):
                 if label_name.lower() != "person":
                     continue
 
-                # Safe boundaries
                 h, w, _ = frame.shape
                 x1 = max(0, x1)
                 y1 = max(0, y1)
@@ -66,7 +66,7 @@ def start_camera(detector):
                 for (fx, fy, fw, fh) in faces:
                     face_crop = person_crop[fy:fy+fh, fx:fx+fw]
 
-                    # Run emotion every 3rd frame
+                    # Run emotion every 3 frames
                     if frame_count % 3 == 0:
                         emotion = detect_emotion(face_crop)
                         emotion_history.append(emotion)
@@ -77,7 +77,6 @@ def start_camera(detector):
                                 key=emotion_history.count
                             )
 
-                    # Draw face box
                     cv2.rectangle(
                         person_crop,
                         (fx, fy),
@@ -86,17 +85,16 @@ def start_camera(detector):
                         2
                     )
 
-                # Emotion color coding
+                # Emotion color logic
                 if "happy" in current_emotion.lower():
                     color = (0, 255, 0)
                 elif "sad" in current_emotion.lower() or "angry" in current_emotion.lower():
                     color = (0, 0, 255)
-                elif "uncertain" in current_emotion.lower():
-                    color = (128, 128, 128)
+                elif "surprise" in current_emotion.lower():
+                    color = (0, 255, 255)
                 else:
                     color = (255, 255, 0)
 
-                # Draw person box
                 cv2.rectangle(
                     frame,
                     (x1, y1),
@@ -115,11 +113,11 @@ def start_camera(detector):
                     2
                 )
 
-                # Log emotion every 30 frames
-                if frame_count % 30 == 0:
-                    log_emotion(current_emotion)
+        # ---------------- GLOBAL LOGGING FIX ----------------
+        if frame_count % 30 == 0 and current_emotion != "Detecting...":
+            log_emotion(current_emotion)
 
-        # FPS calculation
+        # ---------------- FPS ----------------
         current_time = time.time()
         fps = 1 / (current_time - prev_time) if prev_time != 0 else 0
         prev_time = current_time
