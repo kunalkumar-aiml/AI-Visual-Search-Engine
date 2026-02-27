@@ -8,7 +8,7 @@ class_names = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise'
 
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
-# Load model once at startup
+# Load trained model once
 model = torch.load("emotion_model.pth", map_location=device)
 model.to(device)
 model.eval()
@@ -34,7 +34,11 @@ def detect_emotion(frame):
         emotion = class_names[predicted.item()]
         conf_score = round(confidence.item() * 100, 2)
 
-        return f"{emotion} ({conf_score}%)"
+        # Confidence threshold filtering
+        if conf_score < 50:
+            return "Uncertain"
+        else:
+            return f"{emotion} ({conf_score}%)"
 
     except Exception as e:
         print("Emotion detection error:", e)
