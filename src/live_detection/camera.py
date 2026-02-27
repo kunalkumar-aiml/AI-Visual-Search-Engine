@@ -3,12 +3,12 @@ import time
 from collections import deque
 from src.emotion.emotion_detector import detect_emotion
 
-# Load Haar cascade for face detection
+# Haar cascade for face detection
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
 
-# Store last 10 emotions for smoothing
+# Emotion smoothing (last 10 predictions)
 emotion_history = deque(maxlen=10)
 
 
@@ -37,67 +37,82 @@ def start_camera(detector):
         for result in results:
             boxes = result.boxes
 
-            if boxes is not None:
-                for box in boxes:
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    cls = int(box.cls[0])
-                    label_name = result.names[cls]
+            if boxes is None:
+                continue
 
-                    # Only detect emotion for person
-                    if label_name.lower() != "person":
-                        continue
+            for box in boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                cls = int(box.cls[0])
+                label_name = result.names[cls]
 
-                    person_crop = frame[y1:y2, x1:x2]
+                if label_name.lower() != "person":
+                    continue
 
-                    if person_crop.size == 0:
-                        continue
+                # Safe boundaries
+                h, w, _ = frame.shape
+                x1 = max(0, x1)
+                y1 = max(0, y1)
+                x2 = min(w, x2)
+                y2 = min(h, y2)
 
-                    gray = cv2.cvtColor(person_crop, cv2.COLOR_BGR2GRAY)
-                    faces = face_cascade.detectMultiScale(
-                        gray, 1.3, 5
-                    )
+                person_crop = frame[y1:y2, x1:x2]
+                if person_crop.size == 0:
+                    continue
 
-                    for (fx, fy, fw, fh) in faces:
-                        face_crop = person_crop[fy:fy+fh, fx:fx+fw]
+                gray = cv2.cvtColor(person_crop, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-                        # Run emotion every 3 frames (performance boost)
-                        if frame_count % 3 == 0:
-                            emotion = detect_emotion(face_crop)
-                            emotion_history.append(emotion)
+                for (fx, fy, fw, fh) in faces:
+                    face_crop = person_crop[fy:fy+fh, fx:fx+fw]
 
-                            if len(emotion_history) > 0:
-                                current_emotion = max(
-                                    set(emotion_history),
-                                    key=emotion_history.count
-                                )
+                    # Run emotion every 3rd frame
+                    if frame_count % 3 == 0:
+                        emotion = detect_emotion(face_crop)
+                        emotion_history.append(emotion)
 
-                        # Draw face box
-                        cv2.rectangle(
-                            person_crop,
-                            (fx, fy),
-                            (fx + fw, fy + fh),
-                            (255, 0, 0),
-                            2
-                        )
+                        if len(emotion_history) > 0:
+                            current_emotion = max(
+                                set(emotion_history),
+                                key=emotion_history.count
+                            )
 
-                    # Draw person box
+                    # Face box
                     cv2.rectangle(
-                        frame,
-                        (x1, y1),
-                        (x2, y2),
-                        (0, 255, 0),
+                        person_crop,
+                        (fx, fy),
+                        (fx + fw, fy + fh),
+                        (255, 0, 0),
                         2
                     )
 
-                    cv2.putText(
-                        frame,
-                        f"{label_name} | {current_emotion}",
-                        (x1, y1 - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
-                        (0, 255, 0),
-                        2
-                    )
+                # Emotion color coding
+                if "happy" in current_emotion.lower():
+                    color = (0, 255, 0)
+                elif "sad" in current_emotion.lower() or "angry" in current_emotion.lower():
+                    color = (0, 0, 255)
+                elif "uncertain" in current_emotion.lower():
+                    color = (128, 128, 128)
+                else:
+                    color = (255, 255, 0)
+
+                # Person box
+                cv2.rectangle(
+                    frame,
+                    (x1, y1),
+                    (x2, y2),
+                    color,
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    f"{label_name} | {current_emotion}",
+                    (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    color,
+                    2
+                )
 
         # FPS calculation
         current_time = time.time()
