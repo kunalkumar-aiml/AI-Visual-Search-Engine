@@ -2,13 +2,14 @@ import cv2
 import time
 from collections import deque
 from src.emotion.emotion_detector import detect_emotion
+from src.utils.emotion_logger import log_emotion
 
 # Haar cascade for face detection
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
 
-# Emotion smoothing (last 10 predictions)
+# Store last 10 emotions for smoothing
 emotion_history = deque(maxlen=10)
 
 
@@ -76,7 +77,7 @@ def start_camera(detector):
                                 key=emotion_history.count
                             )
 
-                    # Face box
+                    # Draw face box
                     cv2.rectangle(
                         person_crop,
                         (fx, fy),
@@ -95,7 +96,7 @@ def start_camera(detector):
                 else:
                     color = (255, 255, 0)
 
-                # Person box
+                # Draw person box
                 cv2.rectangle(
                     frame,
                     (x1, y1),
@@ -113,6 +114,10 @@ def start_camera(detector):
                     color,
                     2
                 )
+
+                # Log emotion every 30 frames
+                if frame_count % 30 == 0:
+                    log_emotion(current_emotion)
 
         # FPS calculation
         current_time = time.time()
