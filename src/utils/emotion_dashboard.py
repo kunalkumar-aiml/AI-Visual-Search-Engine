@@ -2,9 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
-
 LOG_FILE = "outputs/emotion_log.csv"
-
 
 def show_dashboard():
     if not os.path.exists(LOG_FILE):
@@ -18,7 +16,6 @@ def show_dashboard():
     print("\nEmotion Distribution:\n")
     print(emotion_counts)
 
-    # Bar Chart
     plt.figure()
     emotion_counts.plot(kind="bar")
     plt.title("Emotion Frequency")
@@ -26,7 +23,6 @@ def show_dashboard():
     plt.ylabel("Count")
     plt.show()
 
-    # Pie Chart
     plt.figure()
     emotion_counts.plot(kind="pie", autopct="%1.1f%%")
     plt.title("Emotion Percentage Distribution")
