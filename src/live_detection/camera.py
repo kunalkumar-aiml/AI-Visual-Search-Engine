@@ -16,7 +16,6 @@ def start_camera(detector):
 
     while True:
         ret, frame = cap.read()
-
         if not ret:
             break
 
@@ -33,7 +32,17 @@ def start_camera(detector):
 
                     label_name = result.names[cls]
 
-                    # 🔥 Crop face/person region
+                    # ✅ Only detect emotion for person class
+                    if label_name.lower() != "person":
+                        continue
+
+                    # ✅ Safe crop boundaries
+                    h, w, _ = frame.shape
+                    x1 = max(0, x1)
+                    y1 = max(0, y1)
+                    x2 = min(w, x2)
+                    y2 = min(h, y2)
+
                     cropped = frame[y1:y2, x1:x2]
 
                     emotion = "Unknown"
@@ -43,7 +52,10 @@ def start_camera(detector):
 
                     final_label = f"{label_name} | {emotion}"
 
+                    # Draw bounding box
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+                    # Label
                     cv2.putText(
                         frame,
                         final_label,
@@ -54,7 +66,7 @@ def start_camera(detector):
                         2
                     )
 
-        # FPS
+        # FPS calculation
         current_time = time.time()
         fps = 1 / (current_time - prev_time) if prev_time != 0 else 0
         prev_time = current_time
