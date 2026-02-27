@@ -1,12 +1,7 @@
-# Virtual Environment
 venv/
-
-# Python cache
 __pycache__/
 *.pyc
-
-# Model files
-models/
-
-# OS files
+outputs/
+*.log
+yolov8n.pt
 .DS_Store
